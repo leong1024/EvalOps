@@ -66,6 +66,8 @@ venv.bak/
 .idea
 .aico/*
 !.aico/project.json
+.deepeval/
+.benchmarks/
 storage
 code-review-report.*
 .evalops/graphify/
