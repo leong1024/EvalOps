@@ -49,6 +49,7 @@ class ContextEnricher:
                 bundle = self.deep_agent_runner.collect_context(
                     repo_root=Path(repo.working_tree_dir or "."),
                     issues=report.plain_issues,
+                    diff=diff,
                     graph=graph,
                     config=config,
                     repo_ref=repo_ref,

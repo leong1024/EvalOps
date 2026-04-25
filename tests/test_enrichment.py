@@ -16,6 +16,13 @@ class FakeRepo:
         self.working_tree_dir = str(root)
 
 
+class FakeDiff:
+    path = "app.py"
+
+    def __str__(self):
+        return "diff --git a/app.py b/app.py\n+buggy_change()"
+
+
 def _report_with_issues():
     report = Report(number_of_processed_files=1, summary="Summary")
     report.register_issues(
@@ -143,6 +150,7 @@ def test_deep_agent_runner_constructs_readonly_filesystem_backend(tmp_path):
     bundle = runner.collect_context(
         repo_root=tmp_path,
         issues=_report_with_issues().plain_issues,
+        diff=[FakeDiff()],
         graph=GraphIndex.from_payload(
             {
                 "nodes": [
@@ -162,6 +170,9 @@ def test_deep_agent_runner_constructs_readonly_filesystem_backend(tmp_path):
     assert permissions[0].mode == "deny"
     assert permissions[-1].operations == ["read"]
     assert permissions[-1].mode == "allow"
+    content = json.loads(calls["payload"]["messages"][0]["content"])
+    assert content["reviewed_diff"][0]["file"] == "app.py"
+    assert "+buggy_change()" in content["reviewed_diff"][0]["diff"]
     assert bundle.issues[0].agent_assessment == "supports"
 
 

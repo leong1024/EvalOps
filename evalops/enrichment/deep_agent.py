@@ -5,7 +5,7 @@ import json
 import re
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 from ..project_config import ProjectConfig
 from ..report_struct import Issue
@@ -30,6 +30,7 @@ class DeepAgentContextRunner:
         self,
         repo_root: Path,
         issues: list[Issue],
+        diff: Iterable[Any],
         graph: GraphIndex,
         config: ProjectConfig,
         repo_ref: str = "",
@@ -53,7 +54,7 @@ class DeepAgentContextRunner:
             permissions=permissions,
             system_prompt=prompt,
         )
-        payload = self._input_payload(issues, graph, config)
+        payload = self._input_payload(issues, diff, graph, config)
         timeout = int(getattr(config, "deep_agent_timeout_seconds", 120))
         response = self._invoke_with_timeout(agent, payload, timeout)
         parsed = _extract_json_payload(_last_message_content(response))
@@ -100,7 +101,8 @@ class DeepAgentContextRunner:
         return f"""You are EvalOps' read-only repository context retriever.
 
 Your task is not to perform a new code review. Your task is to gather concise
-repository evidence for already extracted review issues.
+repository evidence for already extracted review issues, using the reviewed diff
+to understand the exact change that triggered each issue.
 
 Rules:
 - Use the repository graph first to choose related files.
@@ -120,11 +122,16 @@ Assessment values:
     def _input_payload(
         self,
         issues: list[Issue],
+        diff: Iterable[Any],
         graph: GraphIndex,
         config: ProjectConfig,
     ) -> dict[str, Any]:
         issue_payloads = [_issue_payload(issue) for issue in issues]
-        changed_files = sorted({issue.file for issue in issues})
+        reviewed_diff = _diff_payload(diff, config)
+        changed_files = sorted(
+            {issue.file for issue in issues}
+            | {item["file"] for item in reviewed_diff if item.get("file")}
+        )
         graph_context = graph.describe_neighborhood(
             changed_files,
             max_hops=int(getattr(config, "deep_agent_max_hops", 2)),
@@ -139,6 +146,7 @@ Assessment values:
                             "task": "Collect issue-specific repository evidence.",
                             "prompt_version": PROMPT_VERSION,
                             "changed_files": changed_files,
+                            "reviewed_diff": reviewed_diff,
                             "graph_neighborhood": graph_context,
                             "issues": issue_payloads,
                             "output_schema": {
@@ -203,6 +211,30 @@ Assessment values:
 def _issue_payload(issue: Issue) -> dict[str, Any]:
     payload = asdict(issue)
     payload["issue_id"] = str(issue.id)
+    return payload
+
+
+def _diff_payload(diff: Iterable[Any], config: ProjectConfig) -> list[dict[str, str]]:
+    max_tokens = max(1, int(getattr(config, "deep_agent_max_tokens", 8000)) // 2)
+    diff_parts = [
+        {
+            "file": str(getattr(file_diff, "path", "")),
+            "diff": str(file_diff),
+        }
+        for file_diff in diff
+    ]
+    fitted, removed = fit_to_token_size(
+        [json.dumps(part, ensure_ascii=False) for part in diff_parts],
+        max_tokens,
+    )
+    payload = [json.loads(part) for part in fitted]
+    if removed:
+        payload.append(
+            {
+                "file": "",
+                "diff": f"[Trimmed {removed} diff part(s) before Deep Agent context retrieval.]",
+            }
+        )
     return payload
 
 
