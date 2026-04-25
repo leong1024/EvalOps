@@ -106,7 +106,7 @@ def detect_github_env() -> dict:
         try:
             git_repo = git.Repo(Env.working_folder, search_parent_directories=True)
             origin = git_repo.remotes.origin.url
-            # e.g. git@github.com:Nayjest/ai-code-review.git -> Nayjest/ai-code-review
+            # e.g. git@github.com:owner/ai-code-review.git -> owner/ai-code-review
             match = re.search(r"[:/]([\w\-]+)/([\w\-\.]+?)(\.git)?$", origin)
             if match:
                 d["github_repo"] = f"{match.group(1)}/{match.group(2)}"
