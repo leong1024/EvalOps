@@ -1,5 +1,9 @@
 # EvalOps
 
+<p align="center">
+  <img src="documentation/assets/readme/evalops-hero.png" alt="EvalOps AI-powered code review with grounding" width="900" />
+</p>
+
 EvalOps is a Gemini-assisted code review CLI for local changes and pull requests.
 It reviews git diffs, writes structured reports, and can publish review summaries back
 to GitHub or GitLab.

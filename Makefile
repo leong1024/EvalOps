@@ -29,7 +29,7 @@ tests: test
 # Generate CLI reference documentation
 # Does not work on Windows due to PYTHONUTF8 env var setting
 cli-reference:
-	PYTHONUTF8=1 typer evalops.cli utils docs --name evalops --title="<a href=\"../\"><img src=\"../press-kit/logo/evalops-bot-1_64top.png\" align=\"left\" width=64 height=50 title=\"EvalOps: AI Code Reviewer\"></a>EvalOps CLI Reference" --output documentation/command_line_reference.md
+	PYTHONUTF8=1 typer evalops.cli utils docs --name evalops --title="EvalOps CLI Reference" --output documentation/command_line_reference.md
 cli-ref: cli-reference
 cli-doc: cli-reference
 cli-docs: cli-reference
