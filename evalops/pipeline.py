@@ -3,10 +3,9 @@ import warnings
 from enum import StrEnum
 from dataclasses import dataclass, field
 
-from microcore import ui
-from microcore.utils import resolve_callable
-
 from .context import Context
+from .ui import ui
+from .utils.importing import resolve_callable
 from .utils.cli import is_running_in_ci
 
 

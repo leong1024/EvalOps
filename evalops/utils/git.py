@@ -4,7 +4,8 @@ Utility functions for Git operations.
 
 import git
 import typer
-from microcore import ui
+
+from evalops.ui import ui
 
 
 def get_cwd_repo_or_fail() -> git.Repo:

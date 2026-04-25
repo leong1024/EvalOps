@@ -1,5 +1,5 @@
 import os
 
-import microcore as mc
+from evalops.runtime import ApiType
 
-os.environ["LLM_API_TYPE"] = str(mc.ApiType.NONE)
+os.environ["LLM_API_TYPE"] = str(ApiType.NONE)

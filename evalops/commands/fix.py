@@ -9,11 +9,11 @@ from typing import Optional
 
 import git
 import typer
-from microcore import ui
 
 from ..cli_base import app
 from ..constants import JSON_REPORT_FILE_NAME
 from ..report_struct import Report, Issue
+from ..ui import ui
 from ..utils.git import get_cwd_repo_or_fail
 
 

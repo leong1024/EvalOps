@@ -14,10 +14,8 @@ from enum import Enum
 from time import time
 from rich.pretty import pprint
 
-import microcore as mc
-from microcore import ui
-
 from ..cli_base import app
+from ..ui import ui
 from ..constants import *
 from ..core import *
 from ..gh_api import *

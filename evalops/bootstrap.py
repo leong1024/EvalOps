@@ -7,12 +7,12 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-import microcore as mc
-
 from .utils.git_platform.gitlab import is_running_in_gitlab_ci
 from .utils.git_platform.github import is_running_in_github_action
 from .constants import HOME_ENV_PATH, EXECUTABLE, PROJECT_EVALOPS_FOLDER, DEFAULT_MAX_CONCURRENT_TASKS
 from .env import Env
+from .runtime import LLMConfigError, configure, settings
+from .ui import ui
 
 
 def setup_logging(log_level: int = logging.INFO):
@@ -23,11 +23,11 @@ def setup_logging(log_level: int = logging.INFO):
             dt = datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S")
             message, level_name = record.getMessage(), record.levelname
             if record.levelno == logging.WARNING:
-                message = mc.ui.yellow(message)
-                level_name = mc.ui.yellow(level_name)
+                message = ui.yellow(message)
+                level_name = ui.yellow(level_name)
             if record.levelno >= logging.ERROR:
-                message = mc.ui.red(message)
-                level_name = mc.ui.red(level_name)
+                message = ui.red(message)
+                level_name = ui.red(level_name)
 
             formatted_message = f"{dt} {level_name}: {message}"
             if record.exc_info:
@@ -51,7 +51,7 @@ def bootstrap(verbosity: int = 1):
     Env.logging_level = log_levels_by_verbosity.get(verbosity, logging.INFO)
     setup_logging(Env.logging_level)
     logging.info(
-        f"Bootstrapping EvalOps v{Env.evalops_version}... " + mc.ui.gray(f"[verbosity={verbosity}]")
+        f"Bootstrapping EvalOps v{Env.evalops_version}... " + ui.gray(f"[verbosity={verbosity}]")
     )
 
     # cp1251 is used on Windows when redirecting output
@@ -59,20 +59,14 @@ def bootstrap(verbosity: int = 1):
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
     try:
-        mc.configure(
-            DOT_ENV_FILE=HOME_ENV_PATH,
-            USE_LOGGING=verbosity >= 1,
-            EMBEDDING_DB_TYPE=mc.EmbeddingDbType.NONE,
+        configure(
+            dot_env_file=HOME_ENV_PATH,
             PROMPT_TEMPLATES_PATH=[PROJECT_EVALOPS_FOLDER, Path(__file__).parent / "tpl"],
         )
-        if mc.config().MAX_CONCURRENT_TASKS is None:
-            mc.config().MAX_CONCURRENT_TASKS = DEFAULT_MAX_CONCURRENT_TASKS
-        if verbosity > 1:
-            mc.logging.LoggingConfig.STRIP_REQUEST_LINES = None
-        else:
-            mc.logging.LoggingConfig.STRIP_REQUEST_LINES = [300, 15]
+        if settings().max_concurrent_tasks is None:
+            settings().max_concurrent_tasks = DEFAULT_MAX_CONCURRENT_TASKS
 
-    except mc.LLMConfigError as e:
+    except LLMConfigError as e:
         msg = str(e).strip()
         if not msg.endswith((".", "!", "?")):
             msg += "."
@@ -100,7 +94,7 @@ def bootstrap(verbosity: int = 1):
                 f"\nPlease run '{EXECUTABLE} setup' "
                 "to configure LLM API access (API keys, model, etc)."
             )
-        print(mc.ui.red(msg))
+        print(ui.red(msg))
         raise SystemExit(2)
     except Exception as e:
         logging.error(f"Unexpected configuration error: {e}")

@@ -4,7 +4,6 @@ import logging
 import sys
 import textwrap
 
-import microcore as mc
 import typer
 from evalops.utils.git_platform.shared import get_repo_base_web_url
 
@@ -29,7 +28,10 @@ from .cli_base import (
 from .report_struct import Report, ReviewTarget
 from .constants import HOME_ENV_PATH, GITHUB_MD_REPORT_FILE_NAME, REFS_VALUE_ALL
 from .bootstrap import bootstrap
+from .runtime import interactive_setup
+from .ui import ui
 from .utils.cli import no_subcommand, logo
+from .utils.files import file_link
 from .utils.html import remove_html_comments
 from .utils.git_platform.shared import get_repo_domain_and_path
 from .utils.git_platform.platform_types import PlatformType, identify_git_platform
@@ -242,7 +244,7 @@ def cmd_answer(
     if save_to:
         with open(save_to, "w", encoding="utf-8") as f:
             f.write(out)
-        logging.info(f"Answer saved to {mc.utils.file_link(save_to)}")
+        logging.info(f"Answer saved to {file_link(save_to)}")
 
     return out
 
@@ -250,7 +252,7 @@ def cmd_answer(
 @app.command(help="Configure LLM for local usage interactively.")
 def setup():
     print(logo())
-    mc.interactive_setup(HOME_ENV_PATH)
+    interactive_setup(HOME_ENV_PATH)
 
 
 @app.command(name="report", help="Render and display code review report.")
@@ -299,19 +301,19 @@ def files(
 
         print(
             f"Changed files: "
-            f"{mc.ui.green(_what or 'INDEX')} vs "
-            f"{mc.ui.yellow(_against or get_base_branch(repo))}"
-            f"{' filtered by ' + mc.ui.cyan(filters) if filters else ''} --> "
-            f"{mc.ui.cyan(len(patch_set))} file(s)."
+            f"{ui.green(_what or 'INDEX')} vs "
+            f"{ui.yellow(_against or get_base_branch(repo))}"
+            f"{' filtered by ' + ui.cyan(filters) if filters else ''} --> "
+            f"{ui.cyan(len(patch_set))} file(s)."
         )
 
         for patch in patch_set:
             if patch.is_added_file:
-                color = mc.ui.green
+                color = ui.green
             elif patch.is_removed_file:
-                color = mc.ui.red
+                color = ui.red
             else:
-                color = mc.ui.blue
+                color = ui.blue
             print(f"- {color(patch.path)}")
             if diff:
-                print(mc.ui.gray(textwrap.indent(str(patch), "  ")))
+                print(ui.gray(textwrap.indent(str(patch), "  ")))

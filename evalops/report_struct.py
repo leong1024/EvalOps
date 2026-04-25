@@ -8,13 +8,15 @@ from typing import Optional
 from pkgutil import resolve_name
 
 import textwrap
-import microcore as mc
-from microcore.utils import file_link
 from colorama import Fore, Style, Back
 from pydantic.dataclasses import dataclass
 
+from .prompts import render_file, render_string
+from .runtime import settings
+from .ui import ui
 from .constants import JSON_REPORT_FILE_NAME, HTML_TEXT_ICON, HTML_CR_COMMENT_MARKER, REFS_VALUE_ALL
 from .project_config import ProjectConfig
+from .utils.files import file_link
 from .utils.string import block_wrap_lr, max_line_len
 from .utils.html import remove_html_comments
 from .utils.python import filter_kwargs
@@ -174,7 +176,7 @@ class Report:
     number_of_processed_files: int = field(default=0)
     total_issues: int = field(init=False)
     created_at: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    model: str = field(default_factory=lambda: mc.config().MODEL or "")
+    model: str = field(default_factory=lambda: settings().model or "")
     pipeline_out: dict = field(default_factory=dict)
     processing_warnings: list[ProcessingWarning] = field(default_factory=list)
     target: Optional[ReviewTarget] = field(default=None)
@@ -218,7 +220,7 @@ class Report:
         file_name = file_name or JSON_REPORT_FILE_NAME
         with open(file_name, "w") as f:
             json.dump(asdict(self), f, indent=4)
-        logging.info(f"Report saved to {mc.utils.file_link(file_name)}")
+        logging.info(f"Report saved to {file_link(file_name)}")
 
     @staticmethod
     def load(file_name: str | Path = ""):
@@ -237,7 +239,7 @@ class Report:
         config = config or ProjectConfig.load()
         vars = dict(
             report=self,
-            ui=mc.ui,
+            ui=ui,
             Fore=Fore,
             Style=Style,
             Back=Back,
@@ -261,12 +263,12 @@ class Report:
             fn = None
 
         if template_file:
-            return mc.tpl(template_file, **vars)
+            return render_file(template_file, **vars)
         elif fn:
             fn = resolve_name(fn)
             return fn(**vars)
         else:
-            return mc.prompt(template, **vars)
+            return render_string(template, **vars)
 
     def to_cli(self, report_format=Format.CLI):
         """Render the report in CLI format and print it to the console."""
