@@ -2,11 +2,17 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 
 from evalops.context import Context
 from evalops.project_config import ProjectConfig
 from evalops.quality import deepeval_gate
 from evalops.report_struct import ProcessingWarning, Report, ReviewTarget
+
+
+class ExampleJudgeResponse(BaseModel):
+    score: float
+    reason: str
 
 
 def test_quality_gate_records_warning_score_and_renders(monkeypatch):
@@ -48,6 +54,26 @@ def test_quality_gate_records_warning_score_and_renders(monkeypatch):
     assert result["score"] == 0.55
     assert set(result["metrics"]) == {"grounding", "relevance"}
     assert "DeepEval warn 0.55" in report.render(cfg)
+
+
+def test_schema_response_accepts_fenced_json():
+    response = """```json
+{"score": 0.8, "reason": "grounded"}
+```"""
+
+    parsed = deepeval_gate._coerce_schema_response(response, ExampleJudgeResponse)
+
+    assert parsed.score == 0.8
+    assert parsed.reason == "grounded"
+
+
+def test_schema_response_accepts_json_with_surrounding_text():
+    response = 'Here is the result:\n{"score": 0.9, "reason": "relevant"}'
+
+    parsed = deepeval_gate._coerce_schema_response(response, ExampleJudgeResponse)
+
+    assert parsed.score == 0.9
+    assert parsed.reason == "relevant"
 
 
 def test_quality_gate_fails_open_when_deepeval_errors(monkeypatch):

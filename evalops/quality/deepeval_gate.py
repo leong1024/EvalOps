@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -89,16 +90,59 @@ class _EvalOpsDeepEvalModel(DeepEvalBaseLLM):
         response = invoke(prompt)
         if schema is None:
             return response
-        try:
-            return schema.model_validate_json(response)
-        except Exception:
-            return schema(**json.loads(response))
+        return _coerce_schema_response(response, schema)
 
     async def a_generate(self, prompt: str, schema: Any | None = None) -> Any:
         return await asyncio.to_thread(self.generate, prompt, schema)
 
     def get_model_name(self) -> str:
         return self.model_name
+
+
+def _extract_json_payload(response: Any) -> Any:
+    if not isinstance(response, str):
+        return response
+
+    value = response.strip()
+    if value.startswith("```"):
+        value = re.sub(r"^```(?:json)?\s*", "", value, flags=re.IGNORECASE)
+        value = re.sub(r"\s*```$", "", value)
+
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        decoder = json.JSONDecoder()
+        starts = sorted(
+            idx
+            for idx, char in enumerate(value)
+            if char in {"{", "["}
+        )
+        for start in starts:
+            try:
+                payload, _ = decoder.raw_decode(value[start:])
+                return payload
+            except json.JSONDecodeError:
+                continue
+        raise
+
+
+def _coerce_schema_response(response: Any, schema: Any) -> Any:
+    if isinstance(response, str):
+        try:
+            return schema.model_validate_json(response)
+        except Exception:
+            pass
+
+    try:
+        payload = _extract_json_payload(response)
+        if hasattr(schema, "model_validate"):
+            return schema.model_validate(payload)
+        return schema(**payload)
+    except Exception as exc:
+        preview = str(response).strip().replace("\n", " ")[:300]
+        raise ValueError(
+            f"Could not parse DeepEval structured response as JSON. Preview: {preview!r}"
+        ) from exc
 
 
 def _measure_metric(name: str, criteria: str, ctx: Context) -> MetricResult:
