@@ -7,3 +7,13 @@ exclude_files=[
 [prompt_vars]
 # Disable awards
 awards = ""
+
+context_mode = "deep_agent"
+deep_agent_backend = "filesystem"
+deep_agent_readonly = true
+deep_agent_fail_open = true
+deep_agent_timeout_seconds = 1200
+deep_agent_max_hops = 2
+deep_agent_max_files = 20
+deep_agent_max_tokens = 8000
+deep_agent_exclude_files = [".env", ".env.*", "**/*_key*", "**/*.pem", "**/*.p12", ".git/**"]
