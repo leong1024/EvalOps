@@ -18,7 +18,9 @@ from .prompts import render_file, render_string
 from .tokenization import count_tokens, fit_to_token_size
 from .ui import ui
 from .context import Context
+from .graph import GraphifyContextProvider
 from .project_config import ProjectConfig
+from .quality import run_quality_gate
 from .report_struct import ProcessingWarning, Report, ReviewTarget, RawIssue
 from .constants import JSON_REPORT_FILE_NAME, REFS_VALUE_ALL
 from .utils.cli import make_streaming_function
@@ -513,6 +515,12 @@ async def review(
         """
         return not target.is_full_codebase_review() and not file_diff.is_added_file
 
+    processing_warnings: list[ProcessingWarning] = []
+    graph_result = GraphifyContextProvider().get_context(repo=repo, diff=diff, config=cfg)
+    graph_contexts = graph_result.by_file
+    for warning in graph_result.warnings:
+        processing_warnings.append(ProcessingWarning(message=warning))
+
     responses = await invoke_parallel(
         [
             render_string(
@@ -523,6 +531,7 @@ async def review(
                     else str(file_diff.path) + ":\n" + lines[file_diff.path]
                 ),
                 file_lines=lines[file_diff.path] if input_is_diff(file_diff) else None,
+                graph_context=graph_contexts.get(file_diff.path),
                 **cfg.prompt_vars,
             )
             for file_diff in diff
@@ -531,7 +540,6 @@ async def review(
         parse_json={"validator": _llm_response_validator},
         allow_failures=True,
     )
-    processing_warnings: list[ProcessingWarning] = []
     for i, (res_or_error, file) in enumerate(zip(responses, diff)):
         if isinstance(res_or_error, Exception):
             if isinstance(res_or_error, LLMContextLengthExceededError):
@@ -568,6 +576,10 @@ async def review(
         diff=diff,
         repo=repo,
     )
+    if graph_result.combined:
+        ctx.pipeline_out["graph_context"] = graph_result.combined
+    if graph_result.refreshed:
+        ctx.pipeline_out["graph_context_refreshed"] = True
     if cfg.pipeline_steps:
         pipe = Pipeline(ctx=ctx, steps=cfg.pipeline_steps)
         pipe.run()
@@ -575,6 +587,10 @@ async def review(
         logging.info("No pipeline steps defined, skipping pipeline execution")
 
     report.summary = make_cr_summary(ctx)
+    report.pipeline_out = ctx.pipeline_out
+    quality_gate = run_quality_gate(ctx)
+    if quality_gate is not None:
+        report.pipeline_out["quality_gate"] = quality_gate
     report.save(file_name=out_folder / JSON_REPORT_FILE_NAME)
     report_text = report.render(cfg, Report.Format.MARKDOWN)
     text_report_path = out_folder / "code-review-report.md"

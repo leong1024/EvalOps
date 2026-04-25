@@ -46,6 +46,16 @@ class ProjectConfig:
     If True, previously added code review comments in the pull request
     will be collapsed automatically when a new comment is added.
     """
+    quality_gate_enabled: bool = True
+    quality_gate_mode: str = "soft"
+    quality_gate_min_score: float = 0.7
+    quality_gate_metrics: list[str] = field(default_factory=list)
+    graph_context_enabled: bool = False
+    graph_context_path: str = ".evalops/graphify"
+    graph_context_refresh: str = "auto"
+    graph_context_max_tokens: int = 4000
+    graph_context_timeout_seconds: int = 120
+    graph_context_fail_open: bool = True
 
     def __post_init__(self):
         self.pipeline_steps = {

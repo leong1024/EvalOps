@@ -61,6 +61,11 @@ tenacity = "^9.1.4"
 # fastcore dependency is fixed becasue 1.12+ does not work in python 3.11, used by ghapi
 # https://github.com/AnswerDotAI/fastcore/pull/752
 fastcore= "~=1.11.3"
+deepeval = "^3.9.7"
+graphifyy = {version = "^0.5.0", python = ">=3.11,<3.14", optional = true}
+
+[tool.poetry.extras]
+graph = ["graphifyy"]
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "*"

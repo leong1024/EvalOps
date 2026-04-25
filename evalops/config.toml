@@ -11,6 +11,16 @@ mention_triggers = ["evalops", "bot", "ai", "/fix"]
 # Collapse previous code review comments in the GitHub PR before posting new ones
 collapse_previous_code_review_comments = true
 report_template_gitlab_code_quality = "fn:evalops.gitlab.convert_to_gitlab_code_quality_report"
+quality_gate_enabled = true
+quality_gate_mode = "soft"
+quality_gate_min_score = 0.7
+quality_gate_metrics = ["grounding", "relevance", "severity", "false_positive_risk"]
+graph_context_enabled = false
+graph_context_path = ".evalops/graphify"
+graph_context_refresh = "auto"
+graph_context_max_tokens = 4000
+graph_context_timeout_seconds = 120
+graph_context_fail_open = true
 # Code review report template in Markdown format, used for GitHub PR comments.
 report_template_md = """
 <h2>{{ HTML_TEXT_ICON }}I've Reviewed the Code</h2>
@@ -50,6 +60,17 @@ report_template_md = """
     {%- for warning in report.processing_warnings -%}
         {{- "\n" }}  - {{ warning.message -}}
     {%- endfor -%}
+{%- endif -%}
+{%- if report.pipeline_out.quality_gate -%}
+    {%- set gate = report.pipeline_out.quality_gate -%}
+    {{- "\n\n" }}## DeepEval Quality Gate
+    {{- "\n" }}**Status:** {{ gate.status }} | **Score:** {{ "%.2f"|format(gate.score) }} / 1.00
+    {%- if gate.reason -%}
+        {{- "\n" }}**Rationale:** {{ gate.reason }}
+    {%- endif -%}
+    {%- if gate.metrics -%}
+        {{- "\n" }}**Metrics:**{%- for name, metric in gate.metrics.items() -%} {{ name }}={{ "%.2f"|format(metric.score) }}{%- if not loop.last -%}, {%- endif -%}{%- endfor -%}
+    {%- endif -%}
 {%- endif -%}
 {{- HTML_CR_COMMENT_MARKER -}}
 """
@@ -131,6 +152,13 @@ report_template_cli = """
         {{- "\n" }}  {{ Fore.YELLOW }}- {{ warning.message }}{{ Style.RESET_ALL -}}
     {%- endfor -%}
 {%- endif -%}
+{%- if report.pipeline_out.quality_gate -%}
+    {%- set gate = report.pipeline_out.quality_gate -%}
+    {{- "\n" }}
+    {{- "\n" }}{{ Style.BRIGHT }}DEEPEVAL QUALITY GATE{{ Style.RESET_ALL -}}
+    {{- "\n" }}Status: {{ gate.status }} | Score: {{ "%.2f"|format(gate.score) }} / 1.00
+    {%- if gate.reason %}{{ "\n" }}{{ gate.reason }}{% endif -%}
+{%- endif -%}
 """
 # Number of retries for LLM requests in case of failures
 retries = 3
@@ -147,6 +175,11 @@ Review the provided code diff carefully and identify *only* highly confident iss
 {% if file_lines -%}
 ----ADDITIONAL CONTEXT: FULL FILE CONTENT AFTER APPLYING REVIEWED CHANGES----
 {{ file_lines }}
+{%- endif %}
+
+{% if graph_context -%}
+----ADDITIONAL CONTEXT: REPOSITORY GRAPH NEIGHBORHOOD----
+{{ graph_context }}
 {%- endif %}
 
 ----TASK GUIDELINES----

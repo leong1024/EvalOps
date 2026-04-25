@@ -18,11 +18,19 @@ evalops-ai-review:
     GIT_DEPTH: 0  # Full history needed for diff
     GOOGLE_API_KEY: ${{ secret_name }}
     MODEL: {{ model }}
+  cache:
+    key: "evalops-graphify-$CI_PROJECT_ID-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .evalops/graphify/
   script:
-    - pip install evalops.bot~={{ major }}.{{ minor }}
+    - pip install "evalops.bot[graph]~={{ major }}.{{ minor }}"
     - evalops --verbose review --against="origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
     - evalops gitlab-comment --token "$GITLAB_ACCESS_TOKEN" --project-id "$CI_PROJECT_ID" --merge-request-iid "$CI_MERGE_REQUEST_IID"
     - evalops -v0 render gitlab_code_quality > gitlab_code_quality_report.json
   artifacts:
+    paths:
+      - code-review-report.md
+      - code-review-report.json
+      - .evalops/graphify/
     reports:
       codequality: gitlab_code_quality_report.json

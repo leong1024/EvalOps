@@ -28,8 +28,17 @@ jobs:
     - name: Install EvalOps
       run: |
         pip install poetry
-        poetry install
+        poetry install --extras graph
         echo "$(poetry env info --path)/bin" >> $GITHUB_PATH
+
+    - name: Cache Graphify repository graph
+      uses: actions/cache@v5
+      with:
+        path: .evalops/graphify
+        key: evalops-graphify-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('**/poetry.lock', '**/pyproject.toml', '**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
+        restore-keys: |
+          evalops-graphify-${{ runner.os }}-${{ github.ref_name }}-
+          evalops-graphify-${{ runner.os }}-
 
     - name: Run AI code review
       env:
@@ -54,3 +63,4 @@ jobs:
         path: |
           code-review-report.md
           code-review-report.json
+          .evalops/graphify/**
