@@ -27,7 +27,9 @@ traceable output.
 flowchart LR
     A[Git Diff Input] --> B[Issues Extraction Agent]
     B --> C[Summarizer Agent]
+    B --> G[Graphify Context Builder]
     C --> D[ContextBundle Deep Agent]
+    G --> D
     D --> E[DeepEval Quality Gate]
     E --> F[code-review-report.json and code-review-report.md]
 ```
@@ -38,8 +40,10 @@ Core modules:
   actionable issues.
 - **Summarizer Agent**: converts issue-level findings into concise review summaries
   suitable for PR/MR feedback.
+- **Graphify Context Builder**: constructs optional repository graph context
+  (symbols, relationships, and structural signals) to improve grounding.
 - **ContextBundle Deep Agent**: enriches findings with repository-level evidence
-  (diff-aware and optional graph/deep-agent context).
+  (diff-aware, Graphify context, and optional deep-agent evidence).
 - **DeepEval Quality Gate**: evaluates review quality (grounding, relevance,
   severity, false-positive risk) before final output publication.
 
