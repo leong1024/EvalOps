@@ -23,7 +23,7 @@ graph_context_timeout_seconds = 120
 graph_context_fail_open = true
 # Code review report template in Markdown format, used for GitHub PR comments.
 report_template_md = """
-<h2>{{ HTML_TEXT_ICON }}I've Reviewed the Code</h2>
+## 🤖 EvalOps Code Review
 
 {% if report.summary -%}
     {{ report.summary }}
