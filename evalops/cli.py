@@ -63,9 +63,9 @@ def main():
 
 @app.callback(
     invoke_without_command=True,
-    help="\bEvalOps is an AI code reviewer that works with any language model provider."
+    help="\bEvalOps is a Gemini-powered AI code reviewer."
     "\nIt detects issues in GitHub pull requests or local codebase changes"
-    "—instantly, reliably, and without vendor lock-in.",
+    " with Gemini.",
 )
 def cli(
     ctx: typer.Context,

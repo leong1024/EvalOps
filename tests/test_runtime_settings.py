@@ -1,23 +1,19 @@
 from evalops.runtime import ApiType, configure, settings
 
 
-def test_configure_uses_legacy_env_names(monkeypatch):
-    monkeypatch.setenv("LLM_API_TYPE", "openai")
-    monkeypatch.setenv("LLM_API_KEY", "key")
-    monkeypatch.setenv("MODEL", "gpt-test")
+def test_configure_uses_gemini_env_names(monkeypatch):
+    monkeypatch.delenv("EVALOPS_DISABLE_LLM", raising=False)
+    monkeypatch.setenv("GOOGLE_API_KEY", "key")
+    monkeypatch.setenv("MODEL", "gemini-test")
 
     configure()
 
-    assert settings().api_type == ApiType.OPENAI
+    assert settings().api_type == ApiType.GOOGLE
     assert settings().api_key == "key"
-    assert settings().model == "gpt-test"
+    assert settings().model == "gemma-4-31b-it"
 
 
-def test_configure_accepts_provider_specific_key(monkeypatch):
-    monkeypatch.delenv("LLM_API_KEY", raising=False)
-    monkeypatch.setenv("LLM_API_TYPE", "anthropic")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-key")
+def test_configure_stores_prompt_template_paths(tmp_path):
+    configure(PROMPT_TEMPLATES_PATH=[tmp_path])
 
-    configure()
-
-    assert settings().api_key == "anthropic-key"
+    assert settings().prompt_templates_path == [tmp_path]

@@ -11,6 +11,7 @@ from .utils.git_platform.gitlab import is_running_in_gitlab_ci
 from .utils.git_platform.github import is_running_in_github_action
 from .constants import HOME_ENV_PATH, EXECUTABLE, PROJECT_EVALOPS_FOLDER, DEFAULT_MAX_CONCURRENT_TASKS
 from .env import Env
+from .prompts import configure_template_paths
 from .runtime import LLMConfigError, configure, settings
 from .ui import ui
 
@@ -63,6 +64,7 @@ def bootstrap(verbosity: int = 1):
             dot_env_file=HOME_ENV_PATH,
             PROMPT_TEMPLATES_PATH=[PROJECT_EVALOPS_FOLDER, Path(__file__).parent / "tpl"],
         )
+        configure_template_paths(settings().prompt_templates_path)
         if settings().max_concurrent_tasks is None:
             settings().max_concurrent_tasks = DEFAULT_MAX_CONCURRENT_TASKS
 

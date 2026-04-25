@@ -477,6 +477,12 @@ def _llm_response_validator(parsed_response: list[dict]):
     return True
 
 
+def _run_post_process(code: str, **context) -> None:
+    """Run project-configured post-processing without framework-specific globals."""
+    if code:
+        exec(code, {}, context)
+
+
 async def review(
     target: ReviewTarget,
     repo: Repo = None,
@@ -547,7 +553,7 @@ async def review(
 
     issues = {file.path: issues for file, issues in zip(diff, responses) if issues}
     provide_affected_code_blocks(issues, repo, processing_warnings)
-    exec(cfg.post_process, {"mc": mc, **locals()})
+    _run_post_process(cfg.post_process, **locals())
     out_folder = Path(out_folder or repo.working_tree_dir)
     out_folder.mkdir(parents=True, exist_ok=True)
     report = Report(

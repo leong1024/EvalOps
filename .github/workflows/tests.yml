@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
   workflow_call:  # for triggering from pypi-release.yml
     secrets:
-      LLM_API_KEY:
+      GOOGLE_API_KEY:
         required: false # or true if you always need it
 
 permissions:
@@ -42,17 +42,15 @@ jobs:
     - name: Test with pytest
       if: matrix.python-version != '3.13'
       env:
-        LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-        LLM_API_TYPE: openai
-        MODEL: "gpt-5.2"
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        MODEL: "gemma-4-31b-it"
       run: |
         pytest
     - name: Test with pytest +coverage
       if: matrix.python-version == '3.13'
       env:
-        LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-        LLM_API_TYPE: openai
-        MODEL: "gpt-5.2"
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        MODEL: "gemma-4-31b-it"
       run: |
         pytest --cov=evalops --cov-report=xml
     - name: Generate coverage badge

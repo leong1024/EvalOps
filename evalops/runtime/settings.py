@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+
+from evalops.constants import DEFAULT_LLM_MODEL
 
 
 class ApiType(StrEnum):
     NONE = "none"
-    ANTHROPIC = "anthropic"
-    OPENAI = "openai"
     GOOGLE = "google"
 
 
@@ -21,11 +21,12 @@ class LLMConfigError(RuntimeError):
 
 @dataclass
 class Settings:
-    api_type: ApiType = ApiType.NONE
+    api_type: ApiType = ApiType.GOOGLE
     api_key: str = ""
     model: str = ""
     max_concurrent_tasks: int | None = None
     dot_env_file: Path | None = None
+    prompt_templates_path: list[Path] = field(default_factory=list)
 
 
 _settings = Settings()
@@ -45,18 +46,19 @@ def _load_dotenv(path: Path | None) -> None:
 def configure(dot_env_file: str | Path | None = None, **overrides) -> Settings:
     """Load environment-backed settings.
 
-    Legacy environment names are intentionally preserved:
-    ``LLM_API_TYPE``, ``LLM_API_KEY``, ``MODEL`` and ``MAX_CONCURRENT_TASKS``.
+    Gemini is the only supported provider. ``EVALOPS_DISABLE_LLM=1`` is
+    accepted for tests and non-LLM commands.
     """
     global _settings
     path = Path(dot_env_file).expanduser() if dot_env_file else None
     _load_dotenv(path)
 
-    api_type_raw = overrides.get("LLM_API_TYPE") or os.getenv("LLM_API_TYPE") or ApiType.NONE
+    disabled = str(overrides.get("EVALOPS_DISABLE_LLM") or os.getenv("EVALOPS_DISABLE_LLM")).lower()
+    api_type_raw = ApiType.NONE if disabled in {"1", "true", "yes"} else ApiType.GOOGLE
     try:
         api_type = api_type_raw if isinstance(api_type_raw, ApiType) else ApiType(str(api_type_raw))
     except ValueError as exc:
-        raise LLMConfigError(f"Unsupported LLM_API_TYPE: {api_type_raw}") from exc
+        raise LLMConfigError(f"Unsupported Gemini provider setting: {api_type_raw}") from exc
 
     max_concurrent = overrides.get("MAX_CONCURRENT_TASKS") or os.getenv("MAX_CONCURRENT_TASKS")
     if max_concurrent in ("", None):
@@ -64,24 +66,19 @@ def configure(dot_env_file: str | Path | None = None, **overrides) -> Settings:
     else:
         max_concurrent = int(max_concurrent)
 
-    provider_key_env = {
-        ApiType.ANTHROPIC: "ANTHROPIC_API_KEY",
-        ApiType.OPENAI: "OPENAI_API_KEY",
-        ApiType.GOOGLE: "GOOGLE_API_KEY",
-    }.get(api_type)
-    api_key = (
-        overrides.get("LLM_API_KEY")
-        or os.getenv("LLM_API_KEY")
-        or (os.getenv(provider_key_env) if provider_key_env else "")
-        or ""
-    )
+    api_key = overrides.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+
+    prompt_templates_path = overrides.get("PROMPT_TEMPLATES_PATH") or []
+    if isinstance(prompt_templates_path, (str, Path)):
+        prompt_templates_path = [prompt_templates_path]
 
     _settings = Settings(
         api_type=api_type,
         api_key=str(api_key),
-        model=str(overrides.get("MODEL") or os.getenv("MODEL") or ""),
+        model=DEFAULT_LLM_MODEL,
         max_concurrent_tasks=max_concurrent,
         dot_env_file=path,
+        prompt_templates_path=[Path(p) for p in prompt_templates_path],
     )
     return _settings
 
@@ -94,20 +91,12 @@ def interactive_setup(dot_env_file: str | Path) -> None:
     """Write a minimal local environment file for interactive CLI usage."""
     from evalops.ui import ui
 
-    api_type = ui.ask_choose(
-        "Which language model API should EvalOps use?",
-        {
-            ApiType.ANTHROPIC: "Anthropic",
-            ApiType.OPENAI: "OpenAI",
-            ApiType.GOOGLE: "Google",
-        },
-    )
-    api_key = ui.ask_non_empty("Enter your API key")
-    model = ui.ask_non_empty("Enter model name")
+    api_key = ui.ask_non_empty("Enter your Gemini API key")
+    model = DEFAULT_LLM_MODEL
     path = Path(dot_env_file).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        f"LLM_API_TYPE={api_type}\nLLM_API_KEY={api_key}\nMODEL={model}\n",
+        f"GOOGLE_API_KEY={api_key}\nMODEL={model}\n",
         encoding="utf-8",
     )
     ui.warning(f"Configuration saved to {path}")

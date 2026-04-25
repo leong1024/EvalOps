@@ -28,6 +28,11 @@ class PromptRenderer:
 _renderer = PromptRenderer()
 
 
+def configure_template_paths(template_paths: list[str | Path]) -> None:
+    global _renderer
+    _renderer = PromptRenderer(template_paths)
+
+
 def renderer() -> PromptRenderer:
     return _renderer
 

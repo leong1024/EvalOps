@@ -19,3 +19,4 @@ HTML_TEXT_ICON = f'<a href="https://github.com/<your-org>/<your-repo>"><img src=
 HTML_CR_COMMENT_MARKER = "<!-- EVALOPS_COMMENT:CODE_REVIEW_REPORT -->"
 REFS_VALUE_ALL = "!all"
 DEFAULT_MAX_CONCURRENT_TASKS = 40
+DEFAULT_LLM_MODEL = "gemma-4-31b-it"

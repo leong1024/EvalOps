@@ -1,6 +1,6 @@
 # EvalOps
 
-Technical implementation of an AI-assisted code review CLI.
+Technical implementation of a Gemini-assisted code review CLI.
 
 ## Requirements
 
@@ -16,8 +16,17 @@ pip install -e ".[dev]"
 ## Run
 
 ```bash
+export GOOGLE_API_KEY="your-gemini-api-key"
 evalops --help
 evalops review
+```
+
+EvalOps is pinned to model `gemma-4-31b-it`.
+
+## Model Reachability Check
+
+```bash
+python scripts/test_gemma_reachability.py
 ```
 
 ## Development

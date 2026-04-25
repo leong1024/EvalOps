@@ -29,7 +29,7 @@ from git import Repo, GitCommandError
 from rich.panel import Panel
 from rich.console import Console
 
-from ..runtime import ApiType
+from ..constants import DEFAULT_LLM_MODEL
 from ..prompts import render_file
 from ..ui import ui
 from ..core import get_base_branch
@@ -149,7 +149,6 @@ def _show_intro(console: Console):
 @app.command(name="connect", hidden=True)
 @app.command(name="ci", hidden=True)
 def deploy(
-    api_type: ApiType = typer.Option(None, help="LLM API type (interactive if omitted)"),
     commit: bool = typer.Option(None, help="Commit and push changes"),
     rewrite: bool = typer.Option(False, help="Overwrite existing configuration"),
     to_branch: str = typer.Option(
@@ -197,17 +196,15 @@ def deploy(
                 return False
 
     # configure LLM
-    api_type, secret_name, model = _configure_llm(api_type, model)
+    secret_name, model = _configure_llm(model)
 
     # generate workflow files from templates
     major, minor, *_ = version().split(".")
     template_vars = dict(
         model=model,
-        api_type=api_type,
         secret_name=secret_name,
         major=major,
         minor=minor,
-        ApiType=ApiType,
         remove_indent=True,
     )
     created_files = []
@@ -368,84 +365,20 @@ def _try_push_branch(repo: Repo, branch: str) -> bool:
         return False
 
 
-def _configure_llm(
-    api_type: str | ApiType | None,
-    model: str | None = None,
-) -> tuple[ApiType, str, str]:
+def _configure_llm(model: str | None = None) -> tuple[str, str]:
     """
     Configure LLM.
     Args:
-        api_type (str | ApiType | None): API type as string.
         model (str | None): Model name.
     Returns:
-        tuple[ApiType, str, str]: (api_type, secret_name, default_model
+        tuple[str, str]: (secret_name, default_model)
     """
-    api_types = {
-        ApiType.ANTHROPIC: "Anthropic",
-        ApiType.OPENAI: "OpenAI",
-        ApiType.GOOGLE: "Google",
-    }
-    model_proposals = {
-        ApiType.ANTHROPIC: {
-            "claude-opus-4-6": f"Claude Opus 4.6 {ui.dim}(most capable)",
-            "claude-sonnet-4-5": f"Claude Sonnet 4.5 {ui.dim}(balanced)",
-            "claude-haiku-4-5": f"Claude Haiku 4.5 {ui.dim}(cheapest but less capable)",
-        },
-        ApiType.OPENAI: {
-            "gpt-5.2": f"GPT-5.2 {ui.dim} (recommended)",
-            "gpt-5.1": "GPT-5.1",
-            "gpt-5": "GPT-5",
-            "gpt-5-mini": "GPT-5 Mini",
-        },
-        ApiType.GOOGLE: {
-            "gemini-2.5-pro": "Gemini 2.5 Pro",
-            "gemini-2.5-flash": "Gemini 2.5 Flash",
-            "gemini-3-pro-preview": f"Gemini 3 Pro Preview {ui.dim}(rate limited)",
-            "gemini-3-flash-preview": f"Gemini 3 Flash Preview {ui.dim}(rate limited)",
-        },
-    }
-    if not api_type:
-        api_type = ui.ask_choose(
-            "Which language model API should EvalOps use?",
-            api_types,
+    if model and model not in {"default", DEFAULT_LLM_MODEL}:
+        ui.warning(
+            f"Ignoring requested model '{model}'. "
+            f"EvalOps is pinned to {ui.green(DEFAULT_LLM_MODEL)}."
         )
-
-    if api_type is not None and not isinstance(api_type, ApiType):
-        orig_value = api_type
-        try:
-            api_type = ApiType(str(api_type).lower())
-        except ValueError:
-            ui.error(f"Unsupported API type: {orig_value}")
-            raise typer.Exit(2)
-    if api_type not in api_types:
-        ui.error(f"Unsupported API type: {api_type}")
-        raise typer.Exit(2)
-    secret_names = {
-        ApiType.ANTHROPIC: "ANTHROPIC_API_KEY",
-        ApiType.OPENAI: "OPENAI_API_KEY",
-        ApiType.GOOGLE: "GOOGLE_API_KEY",
-    }
-    default_models = {
-        ApiType.ANTHROPIC: "claude-sonnet-4-5",
-        ApiType.OPENAI: "gpt-5.2",
-        ApiType.GOOGLE: "gemini-2.5-pro",
-    }
-    use_default_model = model == "default"
-    if not model or use_default_model:
-        model = default_models.get(api_type, "")
-        if use_default_model and not model:
-            ui.error(f"No default model for API type: {api_type}")
-        if not use_default_model or not model:
-            if api_type in model_proposals:
-                model = ui.ask_choose(
-                    "Select a model",
-                    model_proposals[api_type],
-                    default=default_models[api_type],
-                )
-            else:
-                model = ui.ask_non_empty("Enter the model name")
-
-    return api_type, secret_names[api_type], model
+    return "GOOGLE_API_KEY", DEFAULT_LLM_MODEL
 
 
 def _show_create_secrets_instructions(

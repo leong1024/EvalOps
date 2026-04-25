@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from evalops.runtime import ApiType, configure
+from evalops.runtime import configure
 from evalops.pipeline import Pipeline, PipelineStep, PipelineEnv
 from evalops.context import Context
 from evalops.project_config import ProjectConfig
@@ -64,7 +64,7 @@ def test_pipeline_run_skips_steps_for_other_env(
     dummy_step = PipelineStep(call="myfunc", envs=[PipelineEnv.CI])
     dummy_step.run = MagicMock()
     steps = {"step1": dummy_step}
-    configure(LLM_API_TYPE=ApiType.NONE)
+    configure(EVALOPS_DISABLE_LLM="1")
     ctx = Context(
         report=Report(),  # Mock or set up a repo if needed
         config=ProjectConfig.load(),
@@ -86,7 +86,7 @@ def test_pipeline_step_envs_default(patch_resolve_callable):
 
 
 def test_pipeline_multiple_steps(monkeypatch, patch_github_action_env):
-    configure(LLM_API_TYPE=ApiType.NONE)
+    configure(EVALOPS_DISABLE_LLM="1")
     patch_github_action_env(False)  # LOCAL
 
     step1 = PipelineStep(call="func1", envs=[PipelineEnv.LOCAL])
