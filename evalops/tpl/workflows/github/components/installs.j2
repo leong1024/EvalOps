@@ -1,0 +1,23 @@
+
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with: { python-version: "3.13" }
+
+    - name: Fetch Latest EvalOps Version
+      id: evalops-version
+      run: pip index versions evalops.bot 2>/dev/null | head -1 | sed -n 's/.* (\([^)]*\)).*/version=\1/p' >> $GITHUB_OUTPUT
+
+    {% raw -%}
+    - uses: actions/cache@v5
+      id: cache
+      with:
+        path: |
+          ${{ env.pythonLocation }}/lib/python3.13/site-packages
+          ${{ env.pythonLocation }}/bin
+        key: evalops_v${{ steps.evalops-version.outputs.version }}
+    {%- endraw %}
+
+    - name: Install EvalOps
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: pip install evalops.bot~={{ major }}.{{ minor }}
