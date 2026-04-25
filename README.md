@@ -18,6 +18,31 @@ to GitHub or GitLab.
 
 EvalOps is currently pinned to `gemma-4-31b-it`.
 
+## Architecture Flow
+
+EvalOps uses a modular review pipeline so each stage has a clear responsibility and
+traceable output.
+
+```mermaid
+flowchart LR
+    A[Git Diff Input] --> B[Issues Extraction Agent]
+    B --> C[Summarizer Agent]
+    C --> D[ContextBundle Deep Agent]
+    D --> E[DeepEval Quality Gate]
+    E --> F[code-review-report.json and code-review-report.md]
+```
+
+Core modules:
+
+- **Issues Extraction Agent**: analyzes changed files and extracts concrete,
+  actionable issues.
+- **Summarizer Agent**: converts issue-level findings into concise review summaries
+  suitable for PR/MR feedback.
+- **ContextBundle Deep Agent**: enriches findings with repository-level evidence
+  (diff-aware and optional graph/deep-agent context).
+- **DeepEval Quality Gate**: evaluates review quality (grounding, relevance,
+  severity, false-positive risk) before final output publication.
+
 ## Requirements
 
 - Python 3.11+
