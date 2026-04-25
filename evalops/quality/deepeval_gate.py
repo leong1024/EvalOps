@@ -71,10 +71,46 @@ def _diff_context(ctx: Context) -> str:
     context = "\n".join(str(part) for part in parts)
     if removed:
         context += f"\n\n[Trimmed {removed} diff part(s) for quality evaluation.]"
-    graph_context = ctx.pipeline_out.get("graph_context")
-    if graph_context:
-        context += f"\n\nGraph context:\n{graph_context}"
+    context_bundle = ctx.pipeline_out.get("context_bundle")
+    if context_bundle:
+        context += f"\n\nRepository context evidence:\n{_format_context_bundle(context_bundle)}"
+    else:
+        graph_context = ctx.pipeline_out.get("graph_context")
+        if graph_context:
+            context += f"\n\nGraph context:\n{graph_context}"
     return context
+
+
+def _format_context_bundle(context_bundle: dict[str, Any]) -> str:
+    lines = [
+        f"mode_requested: {context_bundle.get('mode_requested', '')}",
+        f"mode_used: {context_bundle.get('mode_used', '')}",
+        f"repo_ref: {context_bundle.get('repo_ref', '')}",
+    ]
+    for warning in context_bundle.get("warnings", []) or []:
+        lines.append(f"warning: {warning}")
+    for issue in context_bundle.get("issues", []) or []:
+        lines.append(
+            "Issue "
+            f"{issue.get('issue_id', '')} "
+            f"({issue.get('agent_assessment', 'inconclusive')}): "
+            f"{issue.get('claim', '')}"
+        )
+        related = issue.get("related_files") or []
+        if related:
+            lines.append(f"Related files: {', '.join(str(file) for file in related)}")
+        for snippet in issue.get("evidence", []) or []:
+            location = str(snippet.get("file", ""))
+            start_line = snippet.get("start_line")
+            end_line = snippet.get("end_line")
+            if start_line:
+                location += f":{start_line}"
+                if end_line and end_line != start_line:
+                    location += f"-{end_line}"
+            lines.append(
+                f"- {location}: {snippet.get('reason', '')}\n{snippet.get('snippet', '')}"
+            )
+    return "\n".join(lines)
 
 
 class _EvalOpsDeepEvalModel(DeepEvalBaseLLM):

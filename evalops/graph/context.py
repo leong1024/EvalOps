@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import subprocess
+import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,8 @@ class GraphContextResult:
     by_file: dict[str, str] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     refreshed: bool = False
+    graph_dir: Path | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def combined(self) -> str:
@@ -42,13 +45,16 @@ class GraphifyContextProvider:
         diff: Iterable[PatchedFile],
         config: ProjectConfig,
     ) -> GraphContextResult:
-        if not getattr(config, "graph_context_enabled", False):
+        if not self._enabled(config):
             return GraphContextResult()
 
+        diff = list(diff)
         result = GraphContextResult()
         graph_dir = self._graph_dir(repo, config)
+        result.graph_dir = graph_dir
         try:
-            result.refreshed = self._refresh_if_needed(repo, config, graph_dir)
+            result.refreshed = self._refresh_if_needed(repo, diff, config, graph_dir)
+            result.metadata = self._read_metadata(graph_dir)
             result.by_file = self._query_changed_files(repo, diff, config, graph_dir)
         except Exception as exc:
             message = f"Graphify context unavailable: {type(exc).__name__}: {exc}"
@@ -59,26 +65,46 @@ class GraphifyContextProvider:
             raise
         return result
 
+    def _enabled(self, config: ProjectConfig) -> bool:
+        mode = str(getattr(config, "context_mode", "diff_only") or "diff_only").lower()
+        return bool(getattr(config, "graph_context_enabled", False)) or mode in {
+            "graph_context",
+            "deep_agent",
+            "auto",
+        }
+
     def _graph_dir(self, repo: Repo, config: ProjectConfig) -> Path:
         root = Path(repo.working_tree_dir or ".")
         configured = Path(getattr(config, "graph_context_path", str(DEFAULT_GRAPHIFY_PATH)))
         return configured if configured.is_absolute() else root / configured
 
-    def _refresh_if_needed(self, repo: Repo, config: ProjectConfig, graph_dir: Path) -> bool:
+    def _refresh_if_needed(
+        self,
+        repo: Repo,
+        diff: Iterable[PatchedFile],
+        config: ProjectConfig,
+        graph_dir: Path,
+    ) -> bool:
         refresh = str(getattr(config, "graph_context_refresh", "auto")).lower()
         metadata = self._read_metadata(graph_dir)
         graph_file = graph_dir / "graph.json"
+        diff_hash = self._diff_hash(diff)
+        review_fingerprint = self._review_fingerprint(repo, diff_hash, config)
         should_refresh = refresh == "always"
         if refresh == "never":
             should_refresh = False
         elif refresh == "auto":
-            should_refresh = not graph_file.exists() or metadata.get("head_sha") != self._head_sha(repo)
+            expected = metadata.get("review_fingerprint")
+            if expected:
+                should_refresh = not graph_file.exists() or expected != review_fingerprint
+            else:
+                should_refresh = not graph_file.exists() or metadata.get("head_sha") != self._head_sha(repo)
 
         if not should_refresh:
             return False
 
         self._build_or_refresh(repo, config, graph_dir)
-        self._write_metadata(repo, graph_dir)
+        self._write_metadata(repo, graph_dir, diff_hash, review_fingerprint)
         return True
 
     def _build_or_refresh(self, repo: Repo, config: ProjectConfig, graph_dir: Path) -> None:
@@ -198,9 +224,17 @@ class GraphifyContextProvider:
         except json.JSONDecodeError:
             return {}
 
-    def _write_metadata(self, repo: Repo, graph_dir: Path) -> None:
+    def _write_metadata(
+        self,
+        repo: Repo,
+        graph_dir: Path,
+        diff_hash: str,
+        review_fingerprint: str,
+    ) -> None:
         metadata = {
             "head_sha": self._head_sha(repo),
+            "diff_hash": diff_hash,
+            "review_fingerprint": review_fingerprint,
             "graphify_version": self._graphify_version(repo),
             "built_at": datetime.now(timezone.utc).isoformat(),
             "file_count": len(repo.git.ls_files().splitlines()),
@@ -213,6 +247,24 @@ class GraphifyContextProvider:
 
     def _head_sha(self, repo: Repo) -> str:
         return repo.head.commit.hexsha
+
+    def _diff_hash(self, diff: Iterable[PatchedFile]) -> str:
+        digest = hashlib.sha256()
+        for file_diff in diff:
+            digest.update(str(getattr(file_diff, "path", "")).encode("utf-8", errors="ignore"))
+            digest.update(str(file_diff).encode("utf-8", errors="ignore"))
+        return digest.hexdigest()
+
+    def _review_fingerprint(self, repo: Repo, diff_hash: str, config: ProjectConfig) -> str:
+        payload = {
+            "head_sha": self._head_sha(repo),
+            "diff_hash": diff_hash,
+            "graph_context_max_tokens": getattr(config, "graph_context_max_tokens", None),
+            "context_mode": getattr(config, "context_mode", None),
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode("utf-8", errors="ignore")
+        ).hexdigest()
 
     def _graphify_version(self, repo: Repo) -> str:
         command = os.getenv("EVALOPS_GRAPHIFY_COMMAND", "graphify")

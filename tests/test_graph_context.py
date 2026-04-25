@@ -30,6 +30,9 @@ class FakeRepo:
 class FakeDiff:
     path = "app.py"
 
+    def __str__(self):
+        return "diff --git a/app.py b/app.py"
+
 
 def _config(tmp_path: Path, **overrides):
     values = {
@@ -75,7 +78,10 @@ def test_missing_graph_triggers_build_and_writes_metadata(tmp_path, monkeypatch)
     graph_dir = tmp_path / ".evalops" / "graphify"
     assert result.refreshed is True
     assert (graph_dir / "graph.json").exists()
-    assert json.loads((graph_dir / "metadata.json").read_text())["head_sha"] == "head-sha"
+    metadata = json.loads((graph_dir / "metadata.json").read_text())
+    assert metadata["head_sha"] == "head-sha"
+    assert metadata["diff_hash"]
+    assert metadata["review_fingerprint"]
     assert "app.py" in result.by_file["app.py"]
     assert calls[0][:2] == ["graphify", "update"]
 
@@ -106,6 +112,34 @@ def test_stale_metadata_triggers_refresh(tmp_path, monkeypatch):
     provider = GraphifyContextProvider(runner=_runner_writes_graph(calls))
 
     result = provider.get_context(FakeRepo(tmp_path), [FakeDiff()], _config(tmp_path))
+
+    assert result.refreshed is True
+    assert calls[0][:2] == ["graphify", "update"]
+
+
+def test_changed_diff_fingerprint_triggers_refresh(tmp_path, monkeypatch):
+    monkeypatch.setattr("evalops.graph.context.shutil.which", lambda command: command)
+    graph_dir = tmp_path / ".evalops" / "graphify"
+    graph_dir.mkdir(parents=True)
+    (graph_dir / "graph.json").write_text('{"nodes":[{"file":"app.py"}]}', encoding="utf-8")
+    provider = GraphifyContextProvider()
+    old_hash = provider._diff_hash([FakeDiff()])
+    old_fingerprint = provider._review_fingerprint(FakeRepo(tmp_path), old_hash, _config(tmp_path))
+    (graph_dir / "metadata.json").write_text(
+        json.dumps({"head_sha": "head-sha", "review_fingerprint": old_fingerprint}),
+        encoding="utf-8",
+    )
+
+    class ChangedDiff:
+        path = "app.py"
+
+        def __str__(self):
+            return "diff --git a/app.py b/app.py\n+changed"
+
+    calls = []
+    provider = GraphifyContextProvider(runner=_runner_writes_graph(calls))
+
+    result = provider.get_context(FakeRepo(tmp_path), [ChangedDiff()], _config(tmp_path))
 
     assert result.refreshed is True
     assert calls[0][:2] == ["graphify", "update"]

@@ -19,6 +19,7 @@ from .prompts import render_file, render_string
 from .tokenization import count_tokens, fit_to_token_size
 from .ui import ui
 from .context import Context
+from .enrichment import ContextEnricher, needs_graph_context, should_include_prompt_graph
 from .graph import GraphifyContextProvider
 from .project_config import ProjectConfig
 from .quality import run_quality_gate
@@ -490,6 +491,7 @@ async def review(
     target: ReviewTarget,
     repo: Repo = None,
     out_folder: str | os.PathLike | None = None,
+    context_mode: str | None = None,
 ):
     """
     Conducts a code review.
@@ -507,6 +509,8 @@ async def review(
     except NoChangesInContextError:
         logging.error("No changes to review")
         return
+    if context_mode:
+        cfg.context_mode = context_mode
 
     def input_is_diff(file_diff: PatchedFile) -> bool:
         """
@@ -517,10 +521,15 @@ async def review(
         return not target.is_full_codebase_review() and not file_diff.is_added_file
 
     processing_warnings: list[ProcessingWarning] = []
-    graph_result = GraphifyContextProvider().get_context(repo=repo, diff=diff, config=cfg)
-    graph_contexts = graph_result.by_file
-    for warning in graph_result.warnings:
-        processing_warnings.append(ProcessingWarning(message=warning))
+    graph_result = (
+        GraphifyContextProvider().get_context(repo=repo, diff=diff, config=cfg)
+        if needs_graph_context(cfg)
+        else None
+    )
+    graph_contexts = graph_result.by_file if graph_result and should_include_prompt_graph(cfg) else {}
+    if graph_result:
+        for warning in graph_result.warnings:
+            processing_warnings.append(ProcessingWarning(message=warning))
 
     responses = await invoke_parallel(
         [
@@ -577,10 +586,22 @@ async def review(
         diff=diff,
         repo=repo,
     )
-    if graph_result.combined:
+    if graph_result and graph_result.combined:
         ctx.pipeline_out["graph_context"] = graph_result.combined
-    if graph_result.refreshed:
+    if graph_result and graph_result.refreshed:
         ctx.pipeline_out["graph_context_refreshed"] = True
+    if graph_result:
+        context_bundle = ContextEnricher().enrich(
+            repo=repo,
+            diff=diff,
+            report=report,
+            graph_result=graph_result,
+            config=cfg,
+        )
+        if context_bundle is not None:
+            ctx.pipeline_out["context_bundle"] = context_bundle.as_dict()
+            for warning in context_bundle.warnings:
+                processing_warnings.append(ProcessingWarning(message=warning))
     if cfg.pipeline_steps:
         pipe = Pipeline(ctx=ctx, steps=cfg.pipeline_steps)
         pipe.run()

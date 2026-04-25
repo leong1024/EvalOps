@@ -108,6 +108,42 @@ def test_report_output_serializes_processing_warnings():
     ]
 
 
+def test_diff_context_prefers_context_bundle_over_legacy_graph_context():
+    cfg = ProjectConfig(max_code_tokens=1000)
+    ctx = Context(report=Report(summary="Summary"), config=cfg, diff=["diff"], repo=None)
+    ctx.pipeline_out["graph_context"] = "legacy graph text"
+    ctx.pipeline_out["context_bundle"] = {
+        "mode_requested": "deep_agent",
+        "mode_used": "deep_agent",
+        "repo_ref": "ref",
+        "issues": [
+            {
+                "issue_id": "1",
+                "file": "app.py",
+                "claim": "Bug",
+                "related_files": ["lib.py"],
+                "agent_assessment": "supports",
+                "evidence": [
+                    {
+                        "file": "lib.py",
+                        "reason": "callee",
+                        "snippet": "def helper(): pass",
+                        "start_line": 1,
+                        "end_line": 1,
+                    }
+                ],
+            }
+        ],
+        "warnings": [],
+    }
+
+    context = deepeval_gate._diff_context(ctx)
+
+    assert "Repository context evidence" in context
+    assert "def helper(): pass" in context
+    assert "legacy graph text" not in context
+
+
 @pytest.mark.asyncio
 async def test_review_runs_quality_gate_after_summary_and_saves_metadata(tmp_path, monkeypatch):
     from evalops import core

@@ -123,7 +123,17 @@ graph_context_enabled = true
 ```
 
 Graph artifacts are stored under `.evalops/graphify/`, refreshed automatically when
-the repository HEAD changes, and ignored if unavailable.
+the reviewed HEAD or diff fingerprint changes, and ignored if unavailable.
+
+EvalOps can also run with explicit context modes:
+
+```toml
+context_mode = "diff_only" # diff_only | graph_context | deep_agent | auto
+```
+
+`deep_agent` mode uses a read-only Deep Agents filesystem workspace over the target
+repository and returns issue-specific evidence for DeepEval. Install `deepagents`
+separately before enabling this mode.
 
 ## CI Setup
 

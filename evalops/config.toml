@@ -15,12 +15,22 @@ quality_gate_enabled = true
 quality_gate_mode = "soft"
 quality_gate_min_score = 0.7
 quality_gate_metrics = ["grounding", "relevance", "severity", "false_positive_risk"]
+context_mode = "diff_only" # diff_only | graph_context | deep_agent | auto
 graph_context_enabled = false
 graph_context_path = ".evalops/graphify"
 graph_context_refresh = "auto"
 graph_context_max_tokens = 4000
 graph_context_timeout_seconds = 120
 graph_context_fail_open = true
+deep_agent_model = ""
+deep_agent_backend = "filesystem"
+deep_agent_max_hops = 2
+deep_agent_max_files = 20
+deep_agent_max_tokens = 8000
+deep_agent_timeout_seconds = 120
+deep_agent_fail_open = true
+deep_agent_readonly = true
+deep_agent_exclude_files = [".env", ".env.*", "**/*_key*", "**/*.pem", "**/*.p12", ".git/**"]
 # Code review report template in Markdown format, used for GitHub PR comments.
 report_template_md = """
 ## 🤖 EvalOps Code Review

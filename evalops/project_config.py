@@ -50,12 +50,31 @@ class ProjectConfig:
     quality_gate_mode: str = "soft"
     quality_gate_min_score: float = 0.7
     quality_gate_metrics: list[str] = field(default_factory=list)
+    context_mode: str = "diff_only"
     graph_context_enabled: bool = False
     graph_context_path: str = ".evalops/graphify"
     graph_context_refresh: str = "auto"
     graph_context_max_tokens: int = 4000
     graph_context_timeout_seconds: int = 120
     graph_context_fail_open: bool = True
+    deep_agent_model: str = ""
+    deep_agent_backend: str = "filesystem"
+    deep_agent_max_hops: int = 2
+    deep_agent_max_files: int = 20
+    deep_agent_max_tokens: int = 8000
+    deep_agent_timeout_seconds: int = 120
+    deep_agent_fail_open: bool = True
+    deep_agent_readonly: bool = True
+    deep_agent_exclude_files: list[str] = field(
+        default_factory=lambda: [
+            ".env",
+            ".env.*",
+            "**/*_key*",
+            "**/*.pem",
+            "**/*.p12",
+            ".git/**",
+        ]
+    )
 
     def __post_init__(self):
         self.pipeline_steps = {

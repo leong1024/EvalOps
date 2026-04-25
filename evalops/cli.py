@@ -142,6 +142,11 @@ def cmd_review(
         ),
     ),
     out: str = arg_out(),
+    context_mode: str = typer.Option(
+        None,
+        "--context-mode",
+        help="Context enrichment mode: diff_only, graph_context, deep_agent, or auto",
+    ),
     all: bool = arg_all(),
 ):
     refs, merge_base = _consider_arg_all(all, refs, merge_base)
@@ -169,6 +174,7 @@ def cmd_review(
                 repo=repo,
                 target=review_target,
                 out_folder=out or out_folder,
+                context_mode=context_mode,
             )
         )
         if post_comment:
