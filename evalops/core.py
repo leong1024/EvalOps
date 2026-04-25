@@ -5,6 +5,7 @@ EvalOps core business logic.
 import os
 import fnmatch
 import logging
+from dataclasses import asdict
 from typing import Iterable
 from pathlib import Path
 
@@ -322,7 +323,7 @@ def make_cr_summary(ctx: Context, **kwargs) -> str:
             render_string(
                 ctx.config.summary_prompt,
                 diff=fit_to_token_size(ctx.diff, ctx.config.max_code_tokens)[0],
-                issues=ctx.report.issues,
+                issues=asdict(ctx.report).get("issues", {}),
                 pipeline_out=ctx.pipeline_out,
                 env=Env,
                 **ctx.config.prompt_vars,
