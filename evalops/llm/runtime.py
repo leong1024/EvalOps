@@ -13,8 +13,30 @@ from .errors import LLMContextLengthExceededError
 from .providers import make_chat_model
 
 
+def _content_part_text(part: Any) -> str | None:
+    if isinstance(part, str):
+        return part
+    if not isinstance(part, dict):
+        return None
+
+    part_type = str(part.get("type", "")).lower()
+    if part_type in {"thinking", "reasoning"}:
+        return None
+    if "text" in part and (not part_type or part_type in {"text", "output_text"}):
+        return str(part["text"])
+    return None
+
+
 def _text(response: Any) -> str:
-    return str(getattr(response, "content", response))
+    content = getattr(response, "content", response)
+    if isinstance(content, list):
+        parts = [
+            text
+            for part in content
+            if (text := _content_part_text(part)) is not None
+        ]
+        return "\n".join(parts)
+    return str(content)
 
 
 def _looks_like_context_error(exc: Exception) -> bool:

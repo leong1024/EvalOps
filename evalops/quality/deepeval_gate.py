@@ -57,7 +57,7 @@ def _report_output(ctx: Context) -> str:
             "summary": ctx.report.summary,
             "issues": asdict(ctx.report).get("issues", {}),
             "processing_warnings": [
-                warning.asdict() for warning in ctx.report.processing_warnings
+                asdict(warning) for warning in ctx.report.processing_warnings
             ],
         },
         ensure_ascii=False,

@@ -30,7 +30,7 @@ from .constants import HOME_ENV_PATH, GITHUB_MD_REPORT_FILE_NAME, REFS_VALUE_ALL
 from .bootstrap import bootstrap
 from .runtime import interactive_setup
 from .ui import ui
-from .utils.cli import no_subcommand, logo
+from .utils.cli import no_subcommand
 from .utils.files import file_link
 from .utils.html import remove_html_comments
 from .utils.git_platform.shared import get_repo_domain_and_path
@@ -251,7 +251,6 @@ def cmd_answer(
 
 @app.command(help="Configure LLM for local usage interactively.")
 def setup():
-    print(logo())
     interactive_setup(HOME_ENV_PATH)
 
 

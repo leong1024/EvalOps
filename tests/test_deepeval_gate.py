@@ -6,7 +6,7 @@ import pytest
 from evalops.context import Context
 from evalops.project_config import ProjectConfig
 from evalops.quality import deepeval_gate
-from evalops.report_struct import Report, ReviewTarget
+from evalops.report_struct import ProcessingWarning, Report, ReviewTarget
 
 
 def test_quality_gate_records_warning_score_and_renders(monkeypatch):
@@ -65,6 +65,21 @@ def test_quality_gate_fails_open_when_deepeval_errors(monkeypatch):
     assert result["score"] == 0.0
     assert "no judge available" in result["reason"]
     assert ctx.pipeline_out["quality_gate"] == result
+
+
+def test_report_output_serializes_processing_warnings():
+    cfg = ProjectConfig()
+    report = Report(
+        summary="Summary",
+        processing_warnings=[ProcessingWarning(message="Skipped file", file="app.py")],
+    )
+    ctx = Context(report=report, config=cfg, diff=["diff"], repo=None)
+
+    payload = json.loads(deepeval_gate._report_output(ctx))
+
+    assert payload["processing_warnings"] == [
+        {"message": "Skipped file", "file": "app.py"}
+    ]
 
 
 @pytest.mark.asyncio
